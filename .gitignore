@@ -1,0 +1,40 @@
+# Docker
+*.tar
+*.tar.gz
+
+# Build
+build/
+build-cpu/
+out/
+bin/
+
+# Test data (large binary files)
+*.bin
+input/
+output/
+golden/
+npuchk/
+OPPROF_*/
+prof_output/
+/tmp/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+__pycache__/
+*.pyc
+
+# CANN toolkits (huge)
+asc-devkit/
+asc-devkit-8.5.0/
+asc-tools/
+asc-tools-8.5.0/
+
+# Profile outputs
+profile_*.toml
+*.log
