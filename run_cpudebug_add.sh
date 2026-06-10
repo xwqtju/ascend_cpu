@@ -3,7 +3,7 @@ set -euo pipefail
 
 IMAGE_NAME="${IMAGE_NAME:-ascend-cpu-debug:8.5.0-910b}"
 WORKSPACE="${WORKSPACE:-/Users/xuwenqiang/Desktop/workspace}"
-SAMPLE_DIR="/workspace/ascend_cpu_debug/asc-devkit-8.5.0/examples/01_utilities/03_cpudebug"
+SAMPLE_DIR="/workspace/ascend_cpu/asc-devkit-8.5.0/examples/01_utilities/03_cpudebug"
 
 docker run --rm \
   --platform linux/arm64 \

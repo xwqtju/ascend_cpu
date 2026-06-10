@@ -46,7 +46,7 @@ docker run --rm -it \
   -v /usr/local/bin/npu-smi:/usr/local/bin/npu-smi \
   -v /etc/ascend_install.info:/etc/ascend_install.info \
   -v "${WORKSPACE}:/workspace" \
-  -w /workspace/ascend_cpu_debug \
+  -w /workspace/ascend_cpu \
   -e SOC_VERSION="${SOC_VERSION}" \
   "${IMAGE_NAME}" \
   /bin/bash -l

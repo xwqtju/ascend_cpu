@@ -1,0 +1,15 @@
+asc-devkit
+asc-devkit-8.5.0
+asc-tools
+asc-tools-8.5.0
+custom_ops/**/build
+custom_ops/**/build-cpu
+custom_ops/**/*.bin
+custom_ops/**/input
+custom_ops/**/output
+**/OPPROF_*
+**/npuchk
+**/profile_*.toml
+.git
+.DS_Store
+*.tar.gz

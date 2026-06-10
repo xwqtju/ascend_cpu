@@ -1,268 +1,223 @@
-# Ascend C CANN 8.5.0 算子 CPU 仿真环境
+# Ascend C CANN 算子 CPU 仿真环境
 
-在 Mac (Apple Silicon) 上通过 Docker 容器运行 CANN 8.5.0 算子，使用 CPU 仿真器（PEM DaVinci Model）模拟 24 个 AI Core。
+在 Mac (Apple Silicon) / Linux 服务器上通过 Docker 容器运行 CANN 算子，使用 CPU 仿真器模拟 Ascend AI Core，无需真实 NPU 硬件。
+
+**支持 CANN 8.5.0 / 9.0.0 双版本。**
 
 ## 架构
 
 ```
-Mac (Apple Silicon arm64)
-  └── Colima (Docker 运行时)
-       └── ubuntu:22.04 ARM64 容器
-            ├── CANN Toolkit 8.5.0         安装路径: /usr/local/Ascend/cann-8.5.0/
-            ├── AscendC 编译器 (bisheng)    路径: /usr/local/Ascend/cann-8.5.0/bin/bisheng
-            ├── CPU 仿真器 (PEM Model)      路径: /usr/local/Ascend/cann-8.5.0/tools/simulator/
-            │     ├── libpem_davinci.so        周期精确 DaVinci 仿真引擎
-            │     ├── libruntime_cmodel.so     运行时仿真层
-            │     └── libnpu_drv.so            NPU 驱动仿真（无真实硬件）
-            └── tikicpulib                  路径: /usr/local/Ascend/cann-8.5.0/tools/tikicpulib/
+Mac / Linux 服务器
+  └── Docker 容器 (ubuntu:22.04)
+       ├── CANN Toolkit (8.5.0 或 9.0.0)
+       ├── AscendC 编译器 (bisheng)
+       ├── CPU 仿真器 (PEM DaVinci Model)
+       │     ├── libpem_davinci.so       周期精确仿真引擎
+       │     ├── libruntime_cmodel.so    运行时仿真层
+       │     └── libnpu_drv.so           NPU 驱动仿真
+       └── tikicpulib                    CPU 调试库
 ```
 
-**关键机制**：通过 `LD_PRELOAD` 把仿真库（`libnpu_drv.so:libruntime_cmodel.so:libpem_davinci.so`）注入到运行时，替换真实的 NPU 驱动和 HAL 层，实现在 CPU 上仿真运行算子。
+**仿真原理**：`LD_PRELOAD` 注入仿真库，替换真实的 NPU 驱动/HAL 层，算子二进制在 CPU 上周期精确执行。
+
+---
 
 ## 快速开始
 
 ### 前置条件
 
-- macOS + Apple Silicon (arm64)
-- Colima（Docker 运行时），已安装并运行
-- Docker 镜像已构建：`ascend-cpu-debug:8.5.0-910b`（约 12.8GB）
+- macOS Apple Silicon 或 Linux (x86_64/ARM64)
+- Docker 运行时就绪（Mac 用 Colima，Linux 原生 Docker）
+- Docker 镜像已构建
 
-### 1. 进入容器
-
-```bash
-cd /Users/xuwenqiang/Desktop/workspace/ascend_cpu_debug
-bash enter.sh
-```
-
-### 2. 检查环境
+### 构建镜像
 
 ```bash
-bash check_env.sh
+# CANN 8.5.0
+bash build_image.sh
+
+# CANN 9.0.0
+bash build_image_9.sh
 ```
 
-预期输出：
-```
-ASCEND_HOME_PATH=/usr/local/Ascend/cann-8.5.0
-ASCEND_OPP_PATH=/usr/local/Ascend/cann-8.5.0/opp
-/usr/local/Ascend/cann-8.5.0/bin/atc        ← 编译器可用
-/usr/bin/gdb                                  ← 调试器可用
-Python 3.10.12
-```
-
-### 3. 运行算子
+### 进入容器
 
 ```bash
-# 运行单个算子
-bash run_operator.sh matmul
+# 8.5.0
+IMAGE_NAME=ascend-cpu-debug:8.5.0-910b bash enter.sh
 
-# 批量运行
-bash run_operator.sh add sub reduce matmul
-
-# 查看所有可用算子
-bash run_operator.sh
+# 9.0.0
+IMAGE_NAME=ascend-cpu-debug:9.0.0-910b bash enter.sh
 ```
 
-## 可用算子列表
+### 运行算子
 
-### 基础算子（`00_introduction/`）
+```bash
+# 容器内
+bash run_operator.sh matmul           # 单个算子
+bash run_operator.sh add sub reduce   # 批量
+```
 
-| 算子 | 文件 | 说明 |
+---
+
+## CANN 8.5.0 vs 9.0.0
+
+| | 8.5.0 | 9.0.0 |
 |------|------|------|
-| `add` | `01_add/basic_api_tque_add` | 加法，精度验证通过 ✅ |
-| `matmul` | `02_matmul/normal_matmul` | 矩阵乘法 M=512,N=1024,K=512 |
-| `matmulleakyrelu` | `03_matmulleakyrelu` | MatMul + LeakyReLU 融合算子 |
-| `addn` | `04_addn` | 多输入加法 |
-| `broadcast` | `05_broadcast` | 广播运算 |
-| `reduce` | `06_reduce` | 规约求和 |
-| `sub` | `07_sub` | 减法，精度验证通过 ✅ |
-| `helloworld` | `00_helloworld` | 最简单的 AscendC 示例 |
-| `unaligned_abs` | `08_unaligned_abs` | 非对齐绝对值 |
-| `unaligned_reducemin` | `09_unaligned_reducemin` | 非对齐规约求最小值 |
-| `unaligned_wholereducesum` | `10_unaligned_wholereducesum` | 非对齐全局规约求和 |
-| `vectoradd` | `11_vectoradd` | 向量加法 |
+| 镜像大小 | 12.8GB | 16.1GB |
+| 构建方式 | 从 .run 包安装 | 基于官方 Docker 镜像 |
+| cmake 编译 | `-DCMAKE_ASC_RUN_MODE=cpu` | `-DCMAKE_ASC_ARCHITECTURES=dav-2201` |
+| 仿真运行 | `LD_PRELOAD=... ./demo` | `LD_PRELOAD=... ./demo`（相同） |
+| Profiling | `msprof op simulator`（有 48 核 bug） | PEM toml + trace.json |
+| 新工具 | - | **`cannsim`**（仅 Ascend950） |
+| 支持芯片 | 910B, 310P | **+ Ascend950PR, KirinX90, 920A** |
 
-### 调试工具（`01_utilities/`）
+### 9.0.0 新增：cannsim（Ascend950 专用）
 
-| 算子 | 说明 |
-|------|------|
-| `cpudebug` | CPU debug 模式 ｜ 精度对比 + GDB 调试 |
-| `printf` | 核内 printf 调试 |
-| `assert` | 核内 assert 断言 |
-| `dumptensor` | 张量数据 dump（含 cube 和 vector 两种模式） |
+```bash
+# 一键仿真 + 生成报告
+cannsim record -s Ascend950 -g -o ./output ./demo
 
-### 高阶算子库（`03_libraries/`）
-
-| 算子 | 说明 |
-|------|------|
-| `addcdiv` | AddCDiv 自定义算子库 |
-| `scatter` | Scatter 自定义算子库 |
-
-### 最佳实践（`04_best_practices/`）
-
-| 算子 | 说明 |
-|------|------|
-| `group_matmul` | 分组矩阵乘法 |
-| `aicpu_tiling` | AI CPU + Device Tiling 联合开发 |
-
-## 仿真运行时日志解读
-
-```
-[INFO] AicWrapper attach AIC 0, num_vec_core=2, num_subcore=3   ← 模拟 AI Core 0
-...
-[INFO] AicWrapper attach AIC 23, num_vec_core=2, num_subcore=3  ← 模拟 24 个 Core
->>>>  " PEM MODEL "                                               ← PEM 仿真模型
->>>>  Total no. of 1 chip(s) Model Init Success!                  ← 1 颗芯片初始化成功
-Model RUN TIME: 2205.29 ms                                        ← 仿真耗时（非真实性能）
-[INFO] Total tick: 8901                                           ← cycle 数（用于性能分析）
-[Success] Case accuracy is verification passed.                   ← 精度验证通过
+# 生成流水线图
+cannsim report -e ./output -o ./pipeline -n all
 ```
 
-> **注意**：仿真运行时间不代表真实 NPU 性能。`Total tick` 是周期精确的，可用于分析算子的计算效率。
+> **注意**：`cannsim` 目前仅支持 Ascend950 系列，Ascend910B 仍用 LD_PRELOAD 方式。
+
+---
+
+## 仿真方法
+
+详细指南见 [仿真方法指南.md](仿真方法指南.md)，包含 7 种方法：
+
+| 方法 | 用途 | 启动方式 |
+|------|------|----------|
+| **PEM 仿真** | 运行验证 + cycle 统计 | `LD_PRELOAD=... ./demo` |
+| **PEM toml** | 各 core/block cycle 分析 | 同上，自动生成 `profile_*.toml` |
+| **msprof op simulator** | 硬件指标采样 | `msprof op simulator ./demo` |
+| **cannsim**（9.0+）| 仿真 + profiling + 报告 | `cannsim record -s Ascend950 ./demo` |
+| **CPU Debug** | printf + GDB 调试 | 直接 `./add`（tikicpulib） |
+| **mssanitizer** | 内存/并发正确性 | `mssanitizer --tool=memcheck ./demo` |
+| **msopgen sim** | 流水线可视化 | `msopgen sim -c 0 -d dump/` |
+
+---
+
+## 可用算子
+
+### 内置示例（`asc-devkit-8.5.0/examples/`）
+
+| 类别 | 算子 |
+|------|------|
+| 基础 | `add`, `sub`, `matmul`, `reduce`, `broadcast`, `addn`, `helloworld` |
+| 融合 | `matmulleakyrelu` |
+| 向量 | `vectoradd`, `unaligned_abs`, `unaligned_reducemin`, `unaligned_wholereducesum` |
+| 高阶 | `addcdiv`, `scatter`, `group_matmul`, `aicpu_tiling` |
+| 调试 | `cpudebug`, `printf`, `assert`, `dumptensor` |
+
+### 自定义算子（`custom_ops/`）
+
+- [matmul_1024_8192_4096](custom_ops/matmul_1024_8192_4096/) — 48 核 MatMul M=1024 K=8192 N=4096，精度验证通过 ✅
+
+---
 
 ## 自定义算子开发
 
-### 1. 创建算子文件
-
-在 `asc-devkit-8.5.0/examples/` 下创建目录，编写 `.asc` 算子文件：
-
-```cpp
-// my_kernel.asc
-#include "kernel_operator.h"
-#include "acl/acl.h"
-#include "data_utils.h"
-
-__global__ __aicore__ void my_kernel(GM_ADDR src, GM_ADDR dst) {
-    // CopyIn → Compute → CopyOut
-    // ...
-}
-
-int32_t main(int32_t argc, char *argv[]) {
-    aclInit(nullptr);
-    aclrtSetDevice(0);
-    aclrtStream stream = nullptr;
-    aclrtCreateStream(&stream);
-
-    // 分配内存、加载数据、启动 kernel...
-
-    my_kernel<<<1, nullptr, stream>>>(srcDevice, dstDevice);
-    aclrtSynchronizeStream(stream);
-
-    // 验证结果、清理资源...
-    aclrtDestroyStream(stream);
-    aclrtResetDevice(0);
-    aclFinalize();
-    return 0;
-}
-```
-
-### 2. 编写 CMakeLists.txt
+### CMakeLists.txt
 
 ```cmake
 cmake_minimum_required(VERSION 3.16)
-
 find_package(ASC REQUIRED HINTS $ENV{ASCEND_INSTALL_PATH}/compiler/tikcpp/ascendc_kernel_cmake)
-
 project(kernel_samples LANGUAGES ASC CXX)
-
 add_executable(demo my_kernel.asc)
-
-target_link_libraries(demo PRIVATE
-    tiling_api
-    register
-    platform
-    m
-    dl
-)
-
-target_compile_options(demo PRIVATE
-    $<$<COMPILE_LANGUAGE:ASC>:--npu-arch=dav-2201>
-)
+target_link_libraries(demo PRIVATE tiling_api register platform m dl)
+target_compile_options(demo PRIVATE $<$<COMPILE_LANGUAGE:ASC>:--npu-arch=dav-2201>)
 ```
 
-### 3. 编译运行
+### 编译运行
 
 ```bash
-# 在容器内
-cd /workspace/ascend_cpu_debug/asc-devkit-8.5.0/examples/my_operator
-rm -rf build-cpu
+# 8.5.0
+cmake -B build -DCMAKE_ASC_RUN_MODE=cpu
+# 9.0.0
+cmake -B build -DCMAKE_ASC_ARCHITECTURES=dav-2201
 
-# 编译
-cmake -B build-cpu -DCMAKE_ASC_RUN_MODE=cpu
-cmake --build build-cpu -j
+cmake --build build -j
+cd build
 
-# 运行（仿真）
-cd build-cpu
-export LD_LIBRARY_PATH=/usr/local/Ascend/cann-8.5.0/tools/simulator/Ascend910B1/lib:...
+# 仿真运行
+export LD_LIBRARY_PATH=<simulator_lib>:<ascend_lib64>:<devlib>
 LD_PRELOAD="libnpu_drv.so:libruntime_cmodel.so:libpem_davinci.so" ./demo
 ```
 
-或直接使用封装脚本：
+---
+
+## 切换到 NPU 上板
 
 ```bash
-bash run_operator.sh <你的算子名>
+# NPU 服务器上
+bash enter_npu.sh Ascend910B2
+
+# 容器内编译运行（不加 LD_PRELOAD！）
+cd /workspace/custom_ops/matmul_1024_8192_4096
+cmake -B build && cmake --build build -j
+cd build && ./matmul_1024_8192_4096
+
+# Profiling（真机 msprof）
+msprof op --application=./matmul_1024_8192_4096 --aic-metrics=PipeUtilization,Memory
 ```
 
-## GDB 调试
+算子代码完全不用改，仿真时加 `LD_PRELOAD`，上板时去掉。
+
+---
+
+## 迁移到另一台服务器
 
 ```bash
-cd <算子的 build-cpu 目录>
+# 打包代码（不含构建产物，约 50KB）
+tar --exclude='*/build*' --exclude='*.bin' --exclude='asc-devkit*' --exclude='asc-tools*' \
+    -czf ascend_cpu.tar.gz ascend_cpu/
 
-export LD_PRELOAD="libnpu_drv.so:libruntime_cmodel.so:libpem_davinci.so"
+# 传到服务器
+scp ascend_cpu.tar.gz user@server:/path/
 
-gdb --args ./demo
+# 服务器上
+tar -xzf ascend_cpu.tar.gz && cd ascend_cpu
+docker build -t ascend-cpu-debug:8.5.0-910b .  # 或 -f Dockerfile.x86_64
+bash enter.sh
 ```
 
-在 GDB 内：
-```
-(gdb) set follow-fork-mode child
-(gdb) break my_kernel
-(gdb) run
-(gdb) next
-(gdb) print variable_name
-(gdb) continue
-```
+---
 
 ## 目录结构
 
 ```
-ascend_cpu_debug/
-├── Dockerfile              # CANN 8.5.0 镜像定义（ubuntu 22.04 + CANN Toolkit + OPS）
-├── build_image.sh          # 构建 Docker 镜像
-├── enter.sh                # 进入 Docker 容器（交互式）
-├── check_env.sh            # 检查 CANN 环境（容器内执行）
-├── run_operator.sh         # 一键编译运行算子（容器内执行）
-├── run_cpudebug_add.sh     # CPU debug add 示例
+ascend_cpu/
+├── Dockerfile              # CANN 8.5.0 镜像（ARM64）
+├── Dockerfile.x86_64       # CANN 8.5.0 镜像（x86_64）
+├── Dockerfile.cann9        # CANN 9.0.0 镜像（基于官方）
+├── build_image.sh          # 构建 8.5.0 镜像
+├── build_image_9.sh        # 构建 9.0.0 镜像
+├── enter.sh                # 进入容器（仿真）
+├── enter_npu.sh            # 进入容器（NPU 上板）
+├── check_env.sh            # 检查 CANN 环境
+├── run_operator.sh         # 一键编译运行算子
+├── run_cpudebug_add.sh     # CPU debug 示例
+├── custom_ops/             # 自定义算子
 ├── docker-config/          # Docker 配置
-├── asc-devkit-8.5.0/       # AscendC 开发示例套件（CANN 8.5.0 版本）
-│   └── examples/
-│       ├── 00_introduction/  # 基础算子
-│       ├── 01_utilities/     # 调试工具
-│       ├── 03_libraries/     # 高阶算子库
-│       └── 04_best_practices/# 最佳实践
-├── asc-tools-8.5.0/        # Ascend 工具包（8.5.0 分支）
-└── README.md               # 本文件
+├── README.md               # 本文件
+└── 仿真方法指南.md          # 7 种仿真方法详解
 ```
 
 ## 常见问题
 
 ### Q: CANN 装在哪里？
-CANN 装在 Docker 容器内 `/usr/local/Ascend/cann-8.5.0/`，不在 Mac 宿主机上。进入容器后才能看到。
+Docker 容器内 `/usr/local/Ascend/cann-8.5.0/` 或 `/usr/local/Ascend/cann-9.0.0/`。Mac 上找不到是正常的，进容器才能看到。
 
-### Q: 编译报 symbol lookup error？
-检查是否正确设置了 `LD_PRELOAD`，必须加载仿真库：
-```bash
-export LD_PRELOAD="libnpu_drv.so:libruntime_cmodel.so:libpem_davinci.so"
-```
+### Q: 算子卡住不动？
+没加载仿真库，HAL 层在等 NPU 硬件。确认 `LD_PRELOAD` 已设置。
 
-### Q: 算子运行卡住不动？
-可能没有加载仿真库，真实 HAL 层在等待 NPU 硬件。检查 `LD_PRELOAD` 是否正确设置。
+### Q: 精度不通过？
+8.5.0 编译需 `CMAKE_ASC_RUN_MODE=cpu`，9.0.0 需 `CMAKE_ASC_ARCHITECTURES=dav-2201`。用错会 link 到真机 HAL。
 
-### Q: 精度验证失败？
-仿真环境下 golden data 的生成可能有数据类型差异（如 reduce 算子的 uint32 vs float），算子计算逻辑本身是正确的。
-
-### Q: 如何升级到 CANN 9.0+？
-需要拉取官方 ARM64 镜像：
-```bash
-docker pull ascendai/cann:9.0.0-910b-ubuntu22.04-py3.11
-```
-然后基于该镜像重新构建开发环境。新版本支持 `ascendebug` 命令和更新的 CPU Debug 流程。
+### Q: msprof op simulator 崩溃？
+CANN 8.5.0 在 48 核下触发 double-free bug。升级 9.0.0 或减少 core 数，或用 PEM toml 替代。

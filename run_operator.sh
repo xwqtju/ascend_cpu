@@ -18,7 +18,7 @@ TIK_LIB_V="${ASCEND_HOME_PATH:-/usr/local/Ascend/cann-8.5.0}/tools/tikicpulib/li
 export LD_LIBRARY_PATH="${SIM_DIR}:${ASCEND_LIB}:${DEV_LIB}:${TIK_LIB}:${TIK_LIB_V}:${LD_LIBRARY_PATH:-}"
 PRELOAD="libnpu_drv.so:libruntime_cmodel.so:libpem_davinci.so"
 
-SDK_BASE="/workspace/ascend_cpu_debug/asc-devkit-8.5.0/examples"
+SDK_BASE="/workspace/ascend_cpu/asc-devkit-8.5.0/examples"
 
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
