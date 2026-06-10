@@ -170,6 +170,58 @@ msprof op --application=./matmul_1024_8192_4096 --aic-metrics=PipeUtilization,Me
 
 ---
 
+## ACLNN 直调（零 Kernel 代码）
+
+如果只需要调 CANN **已有的算子**（MatMul、Add、LayerNorm 等），直接用 ACLNN API，**完全不用写 AscendC kernel**。
+
+### vs AscendC kernel
+
+| | AscendC kernel 开发 | ACLNN 直调 |
+|------|------|------|
+| 代码量 | 120+ 行 `.asc` + CMakeLists | ~100 行 `.cpp`，g++ 直接编译 |
+| 需要写 kernel？ | ✅ CopyIn→Compute→CopyOut | ❌ 不需要 |
+| 需要写 tiling？ | ✅ MultiCoreMatmulTiling | ❌ CANN 自动 |
+| 需要管分核？ | ✅ CalcGMOffset | ❌ CANN 自动 |
+| 精度 | 需自己验证 | CANN 保证 |
+| 适用场景 | 开发新算子 | **调已有算子直接用** |
+
+### 两段式 API
+
+```cpp
+// 第一步：算 workspace
+aclnnMatmulGetWorkspaceSize(aTensor, bTensor, cTensor, 0, &wsSize, &executor);
+// 第二步：执行
+aclnnMatmul(workspace, wsSize, executor, stream);
+```
+
+### 示例：aclnn_matmul
+
+```bash
+cd custom_ops/aclnn_matmul
+
+# 编译（g++，不需要 cmake/ASC 编译器）
+g++ -std=c++17 -O2 -o aclnn_matmul aclnn_matmul.cpp \
+    -I/usr/local/Ascend/cann-9.0.0/aarch64-linux/include \
+    -L/usr/local/Ascend/cann-9.0.0/aarch64-linux/lib64 \
+    -lopapi -lascendcl -lnnopbase -lge_runner -lgraph -lrt -ldl -lpthread
+
+# 仿真
+python3 gen_data.py
+LD_PRELOAD="libnpu_drv.so:libruntime_cmodel.so:libpem_davinci.so" ./aclnn_matmul
+```
+
+> 实测 MatMul 256×512×256：0 errors, 84867 ticks, 2.6s
+
+### 可用算子速览
+
+```bash
+ls /usr/local/Ascend/cann-9.0.0/aarch64-linux/include/aclnnop/ | sed s/aclnn_// | sed s/\.h//
+```
+
+头文件在 `aarch64-linux/include/aclnnop/`，每个算子都是相同的两段式 API。
+
+---
+
 ## 迁移到另一台服务器
 
 ```bash

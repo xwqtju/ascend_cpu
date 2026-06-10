@@ -1,0 +1,3 @@
+/workspace/ascend_cpu/custom_ops/matmul_1024_8192_4096/build-950/CMakeFiles/matmul_1024_8192_4096.dir
+/workspace/ascend_cpu/custom_ops/matmul_1024_8192_4096/build-950/CMakeFiles/edit_cache.dir
+/workspace/ascend_cpu/custom_ops/matmul_1024_8192_4096/build-950/CMakeFiles/rebuild_cache.dir

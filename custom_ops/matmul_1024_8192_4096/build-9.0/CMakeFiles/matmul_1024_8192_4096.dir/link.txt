@@ -1,0 +1,1 @@
+/usr/local/Ascend/cann-9.0.0/bin/bisheng CMakeFiles/matmul_1024_8192_4096.dir/matmul.asc.o -o matmul_1024_8192_4096  -ltiling_api -lregister -lplatform -lm -ldl 
