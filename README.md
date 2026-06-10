@@ -22,41 +22,110 @@ Mac / Linux 服务器
 
 ---
 
+## 目录
+
+1. [快速开始](#快速开始) — 从零到跑通第一个算子
+2. [运行算子](#运行算子) — 三种运行方式详解
+3. [CANN 8.5.0 vs 9.0.0](#cann-850-vs-900)
+4. [ACLNN 直调](#aclnn-直调零-kernel-代码) — 零 kernel 代码调 CANN 算子
+5. [自定义算子开发](#自定义算子开发) — 写自己的 AscendC kernel
+6. [仿真方法](#仿真方法) — 7 种仿真/调试手段
+7. [切换到 NPU 上板](#切换到-npu-上板)
+8. [迁移到另一台服务器](#迁移到另一台服务器)
+
+---
+
 ## 快速开始
 
-### 前置条件
+### 第一步：准备 Docker 环境
 
-- macOS Apple Silicon 或 Linux (x86_64/ARM64)
-- Docker 运行时就绪（Mac 用 Colima，Linux 原生 Docker）
-- Docker 镜像已构建
-
-### 构建镜像
+**Mac (Apple Silicon)**：
 
 ```bash
-# CANN 8.5.0
-bash build_image.sh
+# 安装 Colima（轻量 Docker 运行时）
+brew install colima docker
 
+# 启动 Colima（给 16GB 内存，仿真需要较大内存）
+colima start --memory 16 --cpu 8
+```
+
+**Linux 服务器**：
+
+```bash
+# 安装 Docker
+curl -fsSL https://get.docker.com | bash
+sudo usermod -aG docker $USER  # 免 sudo 用 docker，需重新登录
+```
+
+### 第二步：一键安装
+
+```bash
+git clone https://github.com/xwqtju/ascend_cpu.git
+cd ascend_cpu
+
+# 安装 CANN 9.0.0 仿真环境（推荐）
+bash setup.sh 9.0.0 sim
+#            │    │
+#            │    └─ sim: 仿真模式（CPU仿真，无需NPU硬件）
+#            │        npu: NPU上板模式（需要真实Ascend硬件）
+#            └─ 9.0.0: CANN版本，也可选 8.5.0
+```
+
+`setup.sh` 自动完成：
+- 检测系统（Mac/Linux）和架构（ARM64/x86_64）
+- 选择正确的 Dockerfile
+- 拉取/构建 CANN 镜像（9.0.0 约 16GB，需 10-30 分钟）
+- 验证环境可用
+
+如果不想用 `setup.sh`，也可以手动构建：
+
+```bash
 # CANN 9.0.0
-bash build_image_9.sh
+bash build_image_9.sh                # 国内自动走 DaoCloud 镜像加速
+
+# CANN 8.5.0
+bash build_image.sh                  # Mac用Dockerfile，x86_64服务器用Dockerfile.x86_64
 ```
 
-### 进入容器
+### 第三步：进入容器
 
 ```bash
-# 8.5.0
-IMAGE_NAME=ascend-cpu-debug:8.5.0-910b bash enter.sh
-
-# 9.0.0
+# 9.0.0 仿真环境（默认）
+bash enter.sh
+# 等价于:
 IMAGE_NAME=ascend-cpu-debug:9.0.0-910b bash enter.sh
+
+# 8.5.0 仿真环境
+IMAGE_NAME=ascend-cpu-debug:8.5.0-910b bash enter.sh
 ```
 
-### 运行算子
+`enter.sh` 做了什么：
+- 启动 Docker 容器（Mac 自动加 `--platform linux/arm64`）
+- 挂载当前工作区到容器内 `/workspace`
+- 自动设置 CANN 环境变量
+- 给你一个 bash 终端，可以直接编译运行算子
+
+### 第四步：跑第一个算子
 
 ```bash
-# 容器内
-bash run_operator.sh matmul           # 单个算子
-bash run_operator.sh add sub reduce   # 批量
+# 容器内执行以下任意一条：
+# 方式一：ACLNN 直调（最简单，推荐先试这个）
+cd /workspace/ascend_cpu/custom_ops/aclnn_matmul
+python3 gen_data.py
+LD_PRELOAD="libnpu_drv.so:libruntime_cmodel.so:libpem_davinci.so" ./aclnn_matmul
+
+# 方式二：AscendC 内置示例
+bash run_operator.sh matmul
+
+# 方式三：大 MatMul AscendC kernel
+cd /workspace/ascend_cpu/custom_ops/matmul_1024_8192_4096
+cmake -B build -DCMAKE_ASC_ARCHITECTURES=dav-2201
+cmake --build build -j && cd build
+python3 ../scripts/gen_data.py
+LD_PRELOAD="libnpu_drv.so:libruntime_cmodel.so:libpem_davinci.so" ./matmul_1024_8192_4096
 ```
+
+预期看到 `Total tick: xxx` 和 `Model stopped successfully`，表示仿真成功。
 
 ---
 
