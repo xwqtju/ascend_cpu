@@ -40,3 +40,5 @@ profile_*.toml
 *.log
 sim_output/
 build-*/
+core
+*.dump
