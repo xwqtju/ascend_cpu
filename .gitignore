@@ -38,3 +38,4 @@ asc-tools-8.5.0/
 # Profile outputs
 profile_*.toml
 *.log
+sim_output/

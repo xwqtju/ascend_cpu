@@ -8,7 +8,7 @@ set -euo pipefail
 
 CHIP="${1:-910b}"
 SOC_VERSION="${2:-Ascend910B2}"
-CANN_VERSION="${CANN_VERSION:-8.5.0}"
+CANN_VERSION="${CANN_VERSION:-9.0.0}"
 IMAGE_NAME="${IMAGE_NAME:-ascend-cpu-debug:${CANN_VERSION}-${CHIP}}"
 WORKSPACE="${WORKSPACE:-$(cd "$(dirname "$0")"/.. && pwd)}"
 
